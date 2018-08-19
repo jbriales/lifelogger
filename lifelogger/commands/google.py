@@ -136,7 +136,7 @@ def new_command(summary, duration):
     start_str = start.isoformat()
     message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
 
-    # Dump summary into message file
+    # Ensure folder for temporary message file exists
     if not os.path.exists(MSG_PATH):
         try:
             os.makedirs(MSG_PATH)
@@ -144,6 +144,7 @@ def new_command(summary, duration):
             if exc.errno != errno.EEXIST:
                 raise
 
+    # Dump summary into message file
     with open(message_filename, "w") as file:
         file.write("%s\n\n\n" % summary)
 
@@ -153,10 +154,10 @@ def new_command(summary, duration):
 
     # Open editor for user input
     call_return = subprocess.call(['gedit', '-s', message_filename, '+'])
-    print("Call return >> %s" % (call_return))
+    # NOTE: Right return should be 0
 
     end = datetime.now() + timedelta(minutes=offset)
-    print("End time: %s" % end.isoformat())
+    print("Entry duration: %s" % str(end-start))
 
     # Try to delete the message file
     # try:
