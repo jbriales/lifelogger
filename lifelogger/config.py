@@ -7,6 +7,7 @@ import os
 from collections import MutableMapping
 
 DATA_PATH = os.path.expanduser("~/.config/lifelogger/")
+MSG_PATH = os.path.join(DATA_PATH, "msg")
 CONFIG_PATH = os.path.join(DATA_PATH, "config.json")
 ICAL_PATH = os.path.join(DATA_PATH, "calendar.ics")
 DB_PATH = os.path.join(DATA_PATH, "calendar.sqlite")

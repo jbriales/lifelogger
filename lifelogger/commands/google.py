@@ -17,7 +17,9 @@ from .parser import subparsers
 import six
 
 import subprocess
-#import os
+import os
+
+from ..config import MSG_PATH
 
 def quickadd(summary):
     summary = ' '.join(summary)
@@ -132,9 +134,16 @@ def new_command(summary, duration):
 
     start = datetime.now() + timedelta(minutes=offset)
     start_str = start.isoformat()
-    message_filename = 'ENTRY_MSG_'+start_str
+    message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
 
     # Dump summary into message file
+    if not os.path.exists(MSG_PATH):
+        try:
+            os.makedirs(MSG_PATH)
+        except OSError as exc:  # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
+
     with open(message_filename, "w") as file:
         file.write("%s\n\n\n" % summary)
 
