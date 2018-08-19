@@ -16,6 +16,8 @@ from ..config import config
 from .parser import subparsers
 import six
 
+import subprocess
+#import os
 
 def quickadd(summary):
     summary = ' '.join(summary)
@@ -115,6 +117,93 @@ now.parser.add_argument(
     help="The summary for the event."
 )
 now.parser.set_defaults(func=now)
+
+
+def new_command(summary, duration):
+    try:
+        offset = int(summary[0])
+        summary = summary[1:]
+    except ValueError:
+        offset = 0
+
+    summary = ' '.join(summary)
+
+    service = connect()
+
+    start = datetime.now() + timedelta(minutes=offset)
+    start_str = start.isoformat()
+    message_filename = 'ENTRY_MSG_'+start_str
+
+    # Dump summary into message file
+    with open(message_filename, "w") as file:
+        file.write("%s\n\n\n" % summary)
+
+    print("Start time: %s" % start_str)
+
+    print("Starting new event >> %s" % (summary))
+
+    # Open editor for user input
+    call_return = subprocess.call(['gedit', '-s', message_filename, '+'])
+    print("Call return >> %s" % (call_return))
+
+    end = datetime.now() + timedelta(minutes=offset)
+    print("End time: %s" % end.isoformat())
+
+    # Try to delete the message file
+    # try:
+    #     os.remove(message_filename)
+    # except OSError as e:
+    #     print("Error: %s - %s." % (e.filename, e.strerror))
+
+    # Parse summary and description from message file
+    with open(message_filename, 'r') as file:
+        # Get summary from first line
+        summary = file.readline()
+
+        # Read rest of file as description
+        description = file.read().strip()
+
+    result = service.events().insert(
+        calendarId=config['calendar_id'],
+        body={
+            'summary': summary,
+            'description': description,
+            'start': {
+                'dateTime': start.isoformat(),
+                'timeZone': config['timezone']
+            },
+            'end': {
+                'dateTime': end.isoformat(),
+                'timeZone': config['timezone']
+            }
+        }
+    ).execute()
+
+    if result['status'] == 'confirmed':
+        print("Added new entry! Link: ", result['htmlLink'])
+        return True
+    else:
+        sys.stdout.write("Failed :( - status %s\n" % result['status'])
+        return False
+
+
+new_command.parser = subparsers.add_parser(
+    'new',
+    description="Creates a new event starting now and opens an editor for entry details.")
+new_command.parser.add_argument(
+    '-d',
+    '--duration',
+    type=int,
+    default=0,
+    help="The duration of the event (default 0)"
+)
+new_command.parser.add_argument(
+    'summary',
+    nargs="+",
+    type=six.text_type,
+    help="The summary for the event."
+)
+new_command.parser.set_defaults(func=new_command)
 
 
 def for_command(duration, summary):

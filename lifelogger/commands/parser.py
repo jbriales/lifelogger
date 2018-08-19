@@ -12,14 +12,14 @@ local SQLite database, and analyzing/exporting them.
 To discover more about a command, run it with '--help', e.g.
 'lifelogger download --help'.
 
-Try starting with the 'add', 'download', and 'list' commands.
+Try starting with the 'new', 'add', 'download', and 'list' commands.
 """
 
 # The main parser
 parser = argparse.ArgumentParser(
     prog="lifelogger",
     description=description,
-    epilog="Enjoy! Adam"
+    epilog="Enjoy! Adam, Jesus"
 )
 
 subparsers = parser.add_subparsers()
