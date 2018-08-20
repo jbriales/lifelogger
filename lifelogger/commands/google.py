@@ -19,7 +19,9 @@ import six
 import subprocess
 import os
 
-from ..config import MSG_PATH
+from ..config import DATA_PATH, MSG_PATH
+
+import notify2
 
 def quickadd(summary):
     summary = ' '.join(summary)
@@ -146,7 +148,8 @@ def new_command(summary, duration):
 
     # Dump summary into message file
     with open(message_filename, "w") as file:
-        file.write("%s\n\n\n" % summary)
+        if summary:
+            file.write("%s\n\n\n" % summary)
 
     print("Start time: %s" % start_str)
 
@@ -157,7 +160,8 @@ def new_command(summary, duration):
     # NOTE: Right return should be 0
 
     end = datetime.now() + timedelta(minutes=offset)
-    print("Entry duration: %s" % str(end-start))
+    duration_str = str(end-start).split(".")[0] # drop microseconds
+    print("Entry duration: %s" % duration_str)
 
     # Try to delete the message file
     # try:
@@ -168,10 +172,23 @@ def new_command(summary, duration):
     # Parse summary and description from message file
     with open(message_filename, 'r') as file:
         # Get summary from first line
-        summary = file.readline()
+        summary = file.readline().strip()
 
         # Read rest of file as description
         description = file.read().strip()
+
+    # Assert summary is not empty
+    if not summary:
+        sys.stdout.write("Failed - Empty summary\n")
+        return False
+
+    # Notify duration as a pop-up
+    notify2.init("lifelogger")
+    note = notify2.Notification("Finished lifelogger entry",
+                                duration_str,
+                                os.path.join(DATA_PATH, "newnote-gray.png")
+                                )
+    note.show()
 
     result = service.events().insert(
         calendarId=config['calendar_id'],

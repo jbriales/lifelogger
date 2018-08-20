@@ -173,6 +173,7 @@ def list_command(filter_re):
     from ..database import Event, regexp
 
     events = Event.select().where(regexp(Event.summary, filter_re))
+    # events = Event.select().where(regexp(Event.description, filter_re))
 
     for event in events:
         print(event.display())
