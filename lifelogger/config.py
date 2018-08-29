@@ -12,9 +12,21 @@ CONFIG_PATH = os.path.join(DATA_PATH, "config.json")
 ICAL_PATH = os.path.join(DATA_PATH, "calendar.ics")
 DB_PATH = os.path.join(DATA_PATH, "calendar.sqlite")
 
-
+# Ensure dotfile data folder exists for lifelogger
 if not os.path.exists(DATA_PATH):
-    os.makedirs(DATA_PATH)
+    try:
+        os.makedirs(DATA_PATH)
+    except OSError as exc:  # Guard against race condition
+        if exc.errno != errno.EEXIST:
+            raise
+
+# Ensure subfolder for temporary message file exists
+if not os.path.exists(MSG_PATH):
+    try:
+        os.makedirs(MSG_PATH)
+    except OSError as exc:  # Guard against race condition
+        if exc.errno != errno.EEXIST:
+            raise
 
 
 class ConfigDict(MutableMapping):

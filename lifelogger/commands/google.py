@@ -138,14 +138,6 @@ def new_command(summary, duration):
     start_str = start.isoformat()
     message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
 
-    # Ensure folder for temporary message file exists
-    if not os.path.exists(MSG_PATH):
-        try:
-            os.makedirs(MSG_PATH)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
-
     # Dump summary into message file
     with open(message_filename, "w") as file:
         if summary:
