@@ -110,7 +110,7 @@ make_db.parser.set_defaults(func=make_db)
 
 def shell():
     from datetime import datetime, date  # noqa
-    from ..database import Event, regexp  # noqa
+    from ..database import Event, regexp, db  # noqa
 
     from IPython import embed
     embed()
