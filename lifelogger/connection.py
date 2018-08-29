@@ -37,6 +37,10 @@ FLOW = oa2c_client.flow_from_clientsecrets(
 
 
 def connect():
+    """Connect to Google Calendar API
+
+    Returns: service
+    """
     from .config import config, DATA_PATH
 
     flags = parser.parse_args([])

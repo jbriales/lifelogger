@@ -4,3 +4,4 @@ icalendar
 peewee<3
 requests
 termcolor
+notify2

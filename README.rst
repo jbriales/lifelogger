@@ -20,8 +20,7 @@ Installation Instructions
        lifelogger now "Started lifelogger"
 
    You’ll need to click through and accept the app on your Google
-   account. After saying yes, switch back to the terminal and you should
-   see:
+   account. After saying yes, switch back to the terminal and you should:
 
    .. code-block:: sh
 
@@ -117,6 +116,21 @@ date/time and the full information. There are plenty more commands to play
 with, including other options and ways to add events to your calendar, as well
 as query them in more interesting ways. Have a poke around in the source code
 to check it out!
+
+Config
+------
+Some user-dependent fields are stored within ``~/.config/lifelogger/config.json``.
+Those fields are:
+- "calendar_id"
+  Calendar lifelogger adds events to.
+  Defaults to: 'primary'
+- "calendar_id_nomie"
+  Calendar Nomie data is synced to
+  Non-defaulted: Create manually
+- "timezone"
+- "ical_url"
+  URL that lifelogger downloads whole calendar from.
+  Defaults to: Set from `lifelogger download`
 
 Scripts
 -------

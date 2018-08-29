@@ -12,6 +12,11 @@ CONFIG_PATH = os.path.join(DATA_PATH, "config.json")
 ICAL_PATH = os.path.join(DATA_PATH, "calendar.ics")
 DB_PATH = os.path.join(DATA_PATH, "calendar.sqlite")
 
+# Setup paths for Nomie
+NOMIE_PATH = os.path.expanduser("~/Dropbox/Apps/Nomie/")
+NOMIE_BACKUP_FILE = "Android-Moto_G_(4)-1980787128.nomie.json"
+NOMIE_BACKUP_PATH = os.path.join(NOMIE_PATH, NOMIE_BACKUP_FILE)
+
 # Ensure dotfile data folder exists for lifelogger
 if not os.path.exists(DATA_PATH):
     try:
