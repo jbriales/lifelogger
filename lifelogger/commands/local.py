@@ -18,10 +18,10 @@ from six.moves import input
 
 def download(reset=None):
     if reset:
-        config.pop('ical_url', None)
+        config.pop('ical_url[Nomie]', None)
 
     try:
-        ical_url = config['ical_url']
+        ical_url = config['ical_url[Nomie]']
     except KeyError:
         print("To download the iCal file for analysis, you must give me the "
               "public URL for it.")
@@ -29,7 +29,7 @@ def download(reset=None):
               ", 'Calendar Settings', and then copy the link address from "
               "the ICAL button under 'Calendar Address'")
         ical_url = input("Paste --> ")
-        config['ical_url'] = ical_url
+        config['ical_url[Nomie]'] = ical_url
 
     print("Downloading private iCal file...")
     req = requests.get(ical_url, stream=True)
