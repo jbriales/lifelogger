@@ -8,7 +8,7 @@ import requests
 
 from icalendar import Calendar
 
-from ..config import config, ICAL_PATH
+from ..config import config, ICAL_PATH, ICS_PATH
 from ..utils import nice_format
 
 from .parser import subparsers
@@ -16,7 +16,93 @@ import six
 from six.moves import input
 
 
+def download_all():
+
+    import os
+
+    # if not name:
+    #     # Download all calendars
+    #     for cal in config['calendars']:
+    #         download()
+
+    for cal_name, meta in config['calendars'].items():
+        print("Downloading private iCal file for %s..." % cal_name)
+        ical_url = meta['ical_url']
+        req = requests.get(ical_url, stream=True)
+
+        if req.status_code != 200:
+            print("Could not fetch iCal url for %s - has it expired? " % cal_name)
+            print("Change config field")
+            print(ical_url)
+            return False
+
+        ics_path = os.path.join(ICS_PATH, "%s.ics" % cal_name)
+        with open(ics_path, 'wb') as f:
+            for chunk in req.iter_content():
+                f.write(chunk)
+
+        print("Download successful!")
+
+    make_db_all()
+
+    return True
+
+
+download_all.parser = subparsers.add_parser(
+    'download_all',
+    description="Downloads the iCal that contains the whole of your Google "
+                "Calendar, for all registered calendars,"
+                "and then parses them into the local database"
+)
+download_all.parser.set_defaults(func=download_all)
+
+
+def make_db_all():
+    from ..database import Event, db
+    import os
+
+    print("Converting iCal files into sqlite database...")
+
+    try:
+        Event.drop_table()
+    except Exception:
+        pass
+
+    try:
+        Event.create_table()
+    except Exception:
+        pass
+
+    for cal_name in config['calendars']:
+        ics_path = os.path.join(ICS_PATH, "%s.ics" % cal_name)
+
+        with open(ics_path, 'rb') as f:
+            ical_data = f.read()
+
+        cal = Calendar.from_ical(ical_data)
+
+        with db.atomic():
+            for event in cal.walk("VEVENT"):
+                Event.create_from_ical_event(cal_name, event)
+
+    print("Imported {} events.".format(
+        Event.select().count()
+    ))
+
+    return True
+
+
+make_db_all.parser = subparsers.add_parser(
+    'make_db_all',
+    description="Parses all the downloaded iCal file into the local sqlite "
+                "database. Normally done when the download command is run, "
+                "but may need re-running on changes to lifelogger."
+)
+make_db_all.parser.set_defaults(func=make_db_all)
+
+
 def download(reset=None):
+
     if reset:
         config.pop('ical_url[Nomie]', None)
 

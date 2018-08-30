@@ -9,6 +9,7 @@ import sys
 from datetime import datetime, timedelta
 
 import dateutil.parser
+from googleapiclient.errors import HttpError
 
 from ..connection import connect
 from ..config import config
@@ -193,7 +194,7 @@ def new_command(summary):
     note.show()
 
     result = service.events().insert(
-        calendarId=config['calendar_id'],
+        calendarId=config['calendars']['lifelogger']['id'],
         body={
             'summary': summary,
             'description': description,
@@ -324,8 +325,8 @@ def sync_nomie():
         return False
 
     # Ensure Nomie calendar id is set in config
-    if 'calendar_id_nomie' not in config:
-        print("Error: calendar_id_nomie field not set in config file")
+    if 'Nomie' not in config['calendars']:
+        print("Error: Calendar Nomie not available in config file")
         return False
 
     # Load backup file (json format)
@@ -337,32 +338,100 @@ def sync_nomie():
     # Get Calendar service (entrypoint to API)
     service = connect()
 
-    # Insert Nomie events into Calendar
-    # TODO: Ensure events do not already exist in destination Calendar
-
-    new_entries_counter = 0
-    for event in events:
-        # TODO: Generate unique Nomie event Id for OPTIONAL Calendar Id
-        # TODO: Check event does not already exist
-        # TODO: Maybe find last non-synced event, or iterate backwards until reaching already-synced id
-
-        result = service.events().insert(
-            calendarId=config['calendar_id_nomie'],
+    # Ensure Nomie calendar exists
+    all_cals = service.calendarList().list().execute()['items']
+    calendar_names = [cal['summary'] for cal in all_cals]
+    if 'Nomie' not in calendar_names:
+        from termcolor import colored
+        print(colored("Warning: Nomie calendar missing, creating it!", 'yellow'))
+        created_calendar = service.calendars().insert(
             body={
-                'summary': event['title'],
-                'description': event['description'],
-                'start': {
-                    'dateTime': event['startdate'].isoformat(),
-                    'timeZone': config['timezone']
-                },
-                'end': {
-                    'dateTime': event['enddate'].isoformat(),
-                    'timeZone': config['timezone']
-                }
+                'summary': 'Nomie'
             }
         ).execute()
 
-        if result['status'] != 'confirmed':
+        # Set color of calendar
+        new_id = created_calendar['id']
+        calendar_list_entry = service.calendarList().get(calendarId=new_id).execute()
+        calendar_list_entry['colorId'] = '1' # cocoa
+
+        updated_calendar_list_entry = service.calendarList().update(
+            calendarId=new_id,
+            body=calendar_list_entry
+        ).execute()
+
+        # Save id of new calendar to local config
+        config['calendars']['Nomie']['id'] = created_calendar['id']
+
+        # Get and save iCal address
+        new_ical_url = input("Paste new Secret address in iCal format (from settings) --> ")
+        config['calendars']['Nomie']['ical_url'] = new_ical_url
+
+        # Ensure new config is stored
+        config.save()
+
+    # Ensure local database is up to date
+    from .local import download_all
+    download_all()
+
+    # Keep only new events
+    new_events = list()
+    from ..database import Event
+    for event in events:
+        # Generate unique Nomie event Id based on data
+        nomie_id = 'nomie' + event['startdate'].strftime('%Y%m%d%H%M%S')
+        try:
+            # If event exists, ignore this in new list
+            Event.get(Event.uid == nomie_id + "@google.com")
+        except Event.DoesNotExist as exc:
+            # Event not found, add it to new list
+            new_events.append(event)
+
+    # Insert new Nomie events into Calendar
+
+    new_entries_counter = 0
+    for event in new_events:
+        # Generate unique Nomie event Id based on data
+        nomie_id = 'nomie' + event['startdate'].strftime('%Y%m%d%H%M%S')
+
+        # TODO: Check event does not already exist
+        # TODO: Maybe find last non-synced event, or iterate backwards until reaching already-synced id
+
+        body = {
+            'summary': event['title'],
+            'description': event['description'],
+            'start': {
+                'dateTime': event['startdate'].isoformat(),
+                'timeZone': config['timezone']
+            },
+            'end': {
+                'dateTime': event['enddate'].isoformat(),
+                'timeZone': config['timezone']
+            },
+            'id': nomie_id
+        }
+        try:
+            result = service.events().insert(
+                calendarId=config['calendars']['Nomie']['id'],
+                body=body
+            ).execute()
+        except HttpError as err:
+            if int(err.resp['status']) == 409:
+                from termcolor import colored
+                print(colored("Error: event already exists, delete Nomie calendar to reset!", 'red'))
+                # # Event already exists in chosen calendar
+                # body['status'] = "confirmed" # set visible again
+                # result = service.events().update(
+                #     calendarId=config['calendars']['Nomie']['id'],
+                #     eventId=body['id'],
+                #     body=body
+                # ).execute()
+            else:
+                raise
+
+        if result['status'] == 'confirmed':
+            print("Added new entry! Link: ", result['htmlLink'])
+        else:
             sys.stdout.write("Failed :( - status %s\n" % result['status'])
             return False
 

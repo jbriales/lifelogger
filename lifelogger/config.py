@@ -8,6 +8,7 @@ from collections import MutableMapping
 
 DATA_PATH = os.path.expanduser("~/.config/lifelogger/")
 MSG_PATH = os.path.join(DATA_PATH, "msg")
+ICS_PATH = os.path.join(DATA_PATH, "ics")
 CONFIG_PATH = os.path.join(DATA_PATH, "config.json")
 ICAL_PATH = os.path.join(DATA_PATH, "calendar.ics")
 DB_PATH = os.path.join(DATA_PATH, "calendar.sqlite")
@@ -29,6 +30,14 @@ if not os.path.exists(DATA_PATH):
 if not os.path.exists(MSG_PATH):
     try:
         os.makedirs(MSG_PATH)
+    except OSError as exc:  # Guard against race condition
+        if exc.errno != errno.EEXIST:
+            raise
+
+# Ensure subfolder for temporary ics files exists
+if not os.path.exists(ICS_PATH):
+    try:
+        os.makedirs(ICS_PATH)
     except OSError as exc:  # Guard against race condition
         if exc.errno != errno.EEXIST:
             raise
@@ -57,7 +66,12 @@ class ConfigDict(MutableMapping):
             os.makedirs(DATA_PATH)
 
         with open(CONFIG_PATH, 'w') as cfile:
-            cfile.write(json.dumps(self._data))
+            cfile.write(json.dumps(self._data, indent=2))
+
+    def save(self):
+        """Force save manually
+        """
+        self._save()
 
     def __getitem__(self, key):
         if not self._loaded:

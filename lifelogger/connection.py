@@ -65,11 +65,14 @@ def connect():
         sys.stderr.write("Error: server not found - are you connected to the internet?\n")
         sys.exit()
 
-    if 'calendar_id' not in config:
-        all_cals = service.calendarList().list().execute()['items']
-        primary_cal = [cal for cal in all_cals
-                       if 'primary' in cal and cal['primary']][0]
-        config['calendar_id'] = primary_cal['id']
+    if 'lifelogger' not in config['calendars']:
+        # TODO: Create lifelogger calendar instead
+        from termcolor import colored
+        print colored("Error: lifelogger calendar missing, create it!", 'red')
+        # all_cals = service.calendarList().list().execute()['items']
+        # primary_cal = [cal for cal in all_cals
+        #                if 'primary' in cal and cal['primary']][0]
+        # config['calendar_id'] = primary_cal['id']
 
     if 'timezone' not in config:
         settings = service.settings().list().execute()['items']

@@ -37,6 +37,8 @@ conn.create_function('REGEXP', 2, regex_matches)
 
 # Models
 class Event(Model):
+    calendar = CharField()
+    uid = CharField()
     summary = CharField()
     start = DateTimeField()
     end = DateTimeField()
@@ -52,7 +54,7 @@ class Event(Model):
         order_by = ('start',)
 
     @classmethod
-    def create_from_ical_event(cls, ical_event):
+    def create_from_ical_event(cls, calendar_name, ical_event):
         start = normalized(ical_event.get('dtstart').dt)
         end = ical_event.get('dtend')
 
@@ -63,6 +65,8 @@ class Event(Model):
             end = start
 
         return cls.create(
+            calendar=calendar_name,
+            uid=ical_event.get('uid'),
             summary=ical_event.get('summary'),
             start=start,
             end=end,
