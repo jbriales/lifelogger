@@ -261,8 +261,8 @@ def sync_nomie():
         # Support for changing the name of a tracker for a substitute
         substitutes = {}
 
+        # Event fields: title, startdate, enddate, description
         events = backup_data['events']
-        # Event fields: title, startdate, enddate, description, geo
         calendarEvents = []
         corruptedCount = 0
         addedCount = 0
@@ -283,29 +283,44 @@ def sync_nomie():
 
                 # Value should be time in seconds of the event
                 # Note there is one single event for timer (at the end of timer)
-                event_value = event['value']
+                event_duration = event['value']
                 # Currently automatically convert lack of value to 0
-                if event_value == None:
-                    event_value = 0
-                raw_timestamp_in_millisecs = elements[2]
-                timestamp_in_secs = int(raw_timestamp_in_millisecs) / 1000.0
+                if event_duration == None:
+                    event_duration = 0
+                timestamp_in_millisecs = event['time']
+                timestamp_in_secs = timestamp_in_millisecs / 1000.0
 
                 # Now build event fields
                 # Time stored is that of end
                 enddate = datetime.fromtimestamp(timestamp_in_secs)
                 # Start date is <value> seconds before the end
-                startdate = enddate - timedelta(seconds=event_value)
-                duration_str = str(timedelta(seconds=event_value)).split(".")[0]  # drop microseconds
-                # Now save geo information without place name
-                geo = '["",' + str(event['geo'][0]) + ',' + str(event['geo'][1]) + ']'
+                startdate = enddate - timedelta(seconds=event_duration)
+                duration_str = str(timedelta(seconds=event_duration)).split(".")[0]  # drop microseconds
                 title = '#nomie: ' + trackername
                 description = trackername + ' for ' + duration_str
+
+                # Set color (if special tracker)
+                exercise_trackers = ['Yoga','Run','Skate']
+                colorDict = {
+                    'green': '2',
+                    'cocoa': '7' # check log
+                }
+
+                # Set event color according to type
+                if trackername in exercise_trackers:
+                    color_id = colorDict['green']
+                else:
+                    color_id = None
+
                 toAdd = {
                     'title': title,
                     'startdate': startdate,
                     'enddate': enddate,
                     'description': description,
-                    'geo': geo
+                    'colorId': color_id,
+                    # Metadata
+                    'time': timestamp_in_millisecs,
+                    'tag': trackername
                 }
                 calendarEvents += [toAdd]
                 addedCount += 1
@@ -316,6 +331,46 @@ def sync_nomie():
 
         print("Corrupted record count: " + str(corruptedCount))
         print("Events successfully added: " + str(addedCount))
+
+        # Add notes into corresponding event
+        notes = backup_data["notes"]
+        # NOTE: By construction, calendarEvents list is ordered by enddate
+        endtimes = [event['enddate'] for event in calendarEvents]
+        assert all(a < b for a, b in zip(endtimes, endtimes[1:]))
+
+        event_iter = iter(calendarEvents)
+        current_event = event_iter.next()
+        for note in notes:
+            # Advance event until timestamp is larger or raise exemption
+            while current_event['time'] < note['time']:
+                previous_event = current_event
+                try:
+                    current_event = event_iter.next()
+                except StopIteration as err:
+                    # End of events list reached
+                    break
+            # At this point, previous_event should match current note
+
+            # Parse note value
+            lines = note['value'].splitlines()
+            if len(lines) < 2:
+                print("Bad note value (single line? -> Empty content?): \n %s" % note['value'])
+                continue
+            note_header = lines[0]
+            note_short = lines[1]
+            note_long = '\n'.join(lines[2:])
+
+            # Check tag
+            r = re.compile('#(?P<tag>\w+) ((?P<h>\d+)h )*((?P<m>\d+)m )*((?P<s>\d+)s )*\s+at (?P<time_str>\d\d:\d\d)')
+            out = r.match(note_header)
+            if out is None:
+                print("ERROR: Bad parsing of %s" % note_header)
+            parsed_values = out.groupdict()
+            assert parsed_values['tag'].lower() == previous_event['tag'].lower()
+
+            # Add note content to event summary and description
+            previous_event['title'] += " " + note_short
+            previous_event['description'] += "\n"+note_long
 
         return calendarEvents
 
@@ -410,6 +465,10 @@ def sync_nomie():
             },
             'id': nomie_id
         }
+        # Add color option if custom color
+        if event['colorId'] is not None:
+            body['colorId'] = event['colorId']
+
         try:
             result = service.events().insert(
                 calendarId=config['calendars']['Nomie']['id'],

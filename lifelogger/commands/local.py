@@ -262,7 +262,7 @@ def list_command(filter_re):
     # events = Event.select().where(regexp(Event.description, filter_re))
 
     for event in events:
-        print(event.display())
+        print(event.display()+'\n')
 
     return True
 
