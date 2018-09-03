@@ -151,47 +151,104 @@ def new_command(summary):
     message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
 
     # Dump summary into message file
-    with open(message_filename, "w") as file:
+    with open(message_filename, "w") as f:
         if summary:
-            file.write("%s\n\n\n" % summary)
+            f.write("%s" % summary)
+        f.write("\n") # New line after summary (empty or not!)
+        # Add metadata
+        # From-To interval (special keywords: last, now)
+        f.write("from %s to now\n" % start.strftime("%H:%M"))
 
-    print("Start time: %s" % start_str)
-    print("Starting new event >> %s" % (summary))
+        # Create empty line after summary and metadata
+        f.write("\n\n")
 
     # Open editor for user input
     call_return = subprocess.call(['gedit', '-s', message_filename, '+'])
-    # NOTE: Right return should be 0
+    assert call_return is 0
 
-    end = datetime.now() + timedelta(minutes=offset)
-    duration_str = str(end-start).split(".")[0] # drop microseconds
-    print("Entry duration: %s" % duration_str)
+    # Parse summary and description from message file
+    with open(message_filename, 'r') as f:
+        # Get summary from first line
+        summary = f.readline().strip()
+        # Get start and end times from metadata (second line)
+        meta_str = f.readline().strip()
+        # Read rest of file as description
+        description = f.read().strip()
+
+    notify2.init("lifelogger")
+
+    # Assert summary is not empty
+    if not summary:
+        sys.stdout.write("Failed - Empty summary\n")
+        note = notify2.Notification("ERROR in lifelogger entry",
+                                    "Empty summary",
+                                    os.path.join(DATA_PATH, "newnote-gray.png")
+                                    )
+        note.show()
+        return False
+
+    # Parse final start and end times
+    r = re.compile('from (?P<start>\S+) to (?P<end>\S+)')
+    try:
+        times = r.match(meta_str).groupdict()
+    except AttributeError as err:
+        print('ERROR: No times match for %s' % meta_str)
+        return False
+
+    # Translate start time into datetime
+    now = datetime.utcnow()
+    if times['start'] == start.strftime("%H:%M"):
+        # Same start time as originally stored
+        pass
+    elif times['start'] == 'last':
+        # Special keyword
+
+        # Query events from last 2 days in *lifelogger*
+        last_events = service.events().list(
+            calendarId=config['calendars']['lifelogger']['id'],
+            timeMin=(now-timedelta(days=2)).isoformat() + "Z",
+            timeMax=now.isoformat() + "Z"
+        ).execute()['items']
+
+        # Get endtimes of all retrieved events
+        GetDateTime = lambda str : datetime.strptime(str, "%Y-%m-%dT%H:%M:%S")
+        endtimes = [GetDateTime(event['end']['dateTime'][0:-6]) for event in last_events]
+
+        # Keep last finished event as starting point for current event
+        start = max(endtimes)
+    else:
+        # Parse datetime from hh:mm
+        try:
+            r = re.compile("(\d+):(\d+)")
+            h, m = r.match(times['start']).groups()
+            start = start.replace(hour=int(h), minute=int(m))
+        except ValueError as exc:
+            print("ERROR: Wrong start date format (should be HH:MM): %s" % times['start'])
+
+    # Translate end time into datetime
+    if times['end'] == 'now':
+        # Special keyword
+        end = datetime.now() + timedelta(minutes=offset)
+    else:
+        # Parse datetime from isoformat
+        try:
+            end = datetime.strptime(times['end'], "%Y-%m-%dT%H:%M:%S.%f")
+        except ValueError as exc:
+            print("ERROR: Wrong end date isoformat %s" % times['start'])
+
+    # Get duration of event and notify as pop-up
+    duration_str = str(end - start).split(".")[0]  # drop microseconds
+    note = notify2.Notification("Finished lifelogger entry",
+                                duration_str,
+                                os.path.join(DATA_PATH, "newnote-gray.png")
+                                )
+    note.show()
 
     # Try to delete the message file
     # try:
     #     os.remove(message_filename)
     # except OSError as e:
     #     print("Error: %s - %s." % (e.filename, e.strerror))
-
-    # Parse summary and description from message file
-    with open(message_filename, 'r') as file:
-        # Get summary from first line
-        summary = file.readline().strip()
-
-        # Read rest of file as description
-        description = file.read().strip()
-
-    # Assert summary is not empty
-    if not summary:
-        sys.stdout.write("Failed - Empty summary\n")
-        return False
-
-    # Notify duration as a pop-up
-    notify2.init("lifelogger")
-    note = notify2.Notification("Finished lifelogger entry",
-                                duration_str,
-                                os.path.join(DATA_PATH, "newnote-gray.png")
-                                )
-    note.show()
 
     result = service.events().insert(
         calendarId=config['calendars']['lifelogger']['id'],
@@ -214,6 +271,11 @@ def new_command(summary):
         return True
     else:
         sys.stdout.write("Failed :( - status %s\n" % result['status'])
+        note = notify2.Notification("ERROR in lifelogger entry",
+                                    "Could not create insert new entry - status %s" % result['status'],
+                                    os.path.join(DATA_PATH, "newnote-gray.png")
+                                    )
+        note.show()
         return False
 
 
