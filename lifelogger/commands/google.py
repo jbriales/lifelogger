@@ -163,7 +163,12 @@ def new_command(summary):
         f.write("\n\n")
 
     # Open editor for user input
-    call_return = subprocess.call(['gedit', '-s', message_filename, '+'])
+    gedit_args = ['gedit', '-s', message_filename]
+    if summary:
+        # Summary already given
+        # Add '+' to put cursor at the end of file upon opening
+        gedit_args.append('+')
+    call_return = subprocess.call(gedit_args)
     assert call_return is 0
 
     # Parse summary and description from message file
