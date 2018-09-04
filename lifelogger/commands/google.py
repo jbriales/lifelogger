@@ -315,10 +315,30 @@ def sync_nomie():
         :return: list of events data
         """
 
+        # Store tracker metadata, keyed by Nomie id
         trackers = backup_data['trackers']
-        nameMap = {}
+        trackers_dict = {}
+        # Save human-readable label
         for tracker in trackers:
-            nameMap[tracker['_id']] = tracker['label']
+            trackers_dict[tracker['_id']] = dict()
+            trackers_dict[tracker['_id']]['label'] = tracker['label']
+
+        # Save groups trackers belong to
+        groups = backup_data['meta'][1]['groups']
+        # NOTE: Below is not really necessary
+        # for group, ids in groups.iteritems():
+        #     for tracker_id in ids:
+        #         if 'groups' not in trackers_dict[tracker_id]:
+        #             # ensure groups list is initialized
+        #             trackers_dict[tracker_id]['groups'] = list()
+        #         # add current group to list for this tracker
+        #         trackers_dict[tracker_id]['groups'].append(group)
+
+        # Set special group colors
+        colors_dict = {
+            'green': '2',
+            'cocoa': '7'  # check log
+        }
 
         # Support for changing the name of a tracker for a substitute
         substitutes = {}
@@ -329,10 +349,10 @@ def sync_nomie():
         corruptedCount = 0
         addedCount = 0
         for event in events:
-            elements = event['_id'].split('|')
             # Extract needed data
             try:
-                trackername = nameMap[elements[3]]
+                tracker_id = event['parent']
+                trackername = trackers_dict[tracker_id]['label']
                 # Substitute tracker name if substitute is defined
                 try:
                     trackername = substitutes[trackername]
@@ -361,16 +381,9 @@ def sync_nomie():
                 title = '#nomie: ' + trackername
                 description = trackername + ' for ' + duration_str
 
-                # Set color (if special tracker)
-                exercise_trackers = ['Yoga','Run','Skate']
-                colorDict = {
-                    'green': '2',
-                    'cocoa': '7' # check log
-                }
-
-                # Set event color according to type
-                if trackername in exercise_trackers:
-                    color_id = colorDict['green']
+                # Set event color according to group
+                if tracker_id in groups['Exercise']:
+                    color_id = colors_dict['green']
                 else:
                     color_id = None
 
