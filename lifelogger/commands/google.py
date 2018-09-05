@@ -334,6 +334,66 @@ new_command.parser.add_argument(
 new_command.parser.set_defaults(func=new_command)
 
 
+def cont_command(num_prev_events):
+    """Create continuation event entry in Calendar
+
+    :param num_prev_events: Number of previous events to display
+    :return:
+    """
+
+    # Get Calendar service (entrypoint to API)
+    service = connect()
+
+    # Query events from last 2 days in *lifelogger*
+    # HARDCODED: Nr of days to query
+    now = datetime.utcnow()
+    last_events = service.events().list(
+        calendarId=config['calendars']['lifelogger']['id'],
+        timeMin=(now - timedelta(days=2)).isoformat() + "Z",
+        timeMax=now.isoformat() + "Z",
+        orderBy="updated"  # get ordered list of events
+    ).execute()['items']
+
+    # Print list of last N events
+    for idx, event in enumerate(last_events[:-(num_prev_events+1):-1]):
+        # Traverse num_prev_events last items in reverse order
+        # SOURCE: https://stackoverflow.com/a/509295
+        # That is: From newest back
+        print("%d: %s" % (idx+1, event['summary']))
+
+    try:
+        chosen_idx = input("Type event idx to continue: ")
+        if chosen_idx < 1 or chosen_idx > num_prev_events:
+            raise IndexError
+    except Exception as exc:
+        import traceback
+        print("Bad index input")
+        print(traceback.format_exc())
+        return False
+
+    # Parse event
+    tags, title = last_events[-chosen_idx]['summary'].split(':')
+
+    # Create modify summary with #cont keyword
+    summary = "%s #cont:%s" % (tags, title)
+
+    # Call new function
+    # NOTE: Weird syntax in new_command requires passing a list
+    return new_command([summary])
+
+
+cont_command.parser = subparsers.add_parser(
+    'cont',
+    description="Same as lifelogger new, but copies summary from previous event.")
+cont_command.parser.add_argument(
+    'num_prev_events',
+    # nargs="1",
+    type=int,
+    help="Number of previous events to display.",
+)
+cont_command.parser.set_defaults(func=cont_command)
+
+
 def sync_nomie():
     """Synchronize Nomie backup file with corresponding Calendar
 
