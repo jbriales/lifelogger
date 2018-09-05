@@ -387,8 +387,9 @@ cont_command.parser = subparsers.add_parser(
     description="Same as lifelogger new, but copies summary from previous event.")
 cont_command.parser.add_argument(
     'num_prev_events',
-    # nargs="1",
+    nargs="?",
     type=int,
+    default=10,
     help="Number of previous events to display.",
 )
 cont_command.parser.set_defaults(func=cont_command)
