@@ -372,10 +372,17 @@ def cont_command(num_prev_events):
         return False
 
     # Parse event
-    tags, title = last_events[-chosen_idx]['summary'].split(':')
+    tags_str, title = last_events[-chosen_idx]['summary'].split(':')
+
+    # Parse tags
+    tags_list = re.findall(r"(#\w+)", tags_str)
+
+    # Add '#cont' tag if not there already
+    if "#cont" not in tags_list:
+        tags_list.append("#cont")
 
     # Create modify summary with #cont keyword
-    summary = "%s #cont:%s" % (tags, title)
+    summary = ' '.join(tags_list) + ":" + title
 
     # Call new function
     # NOTE: Weird syntax in new_command requires passing a list
