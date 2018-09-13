@@ -152,7 +152,9 @@ def new_command(summary):
 
         start = datetime.now() + timedelta(minutes=offset)
         start_str = start.isoformat()
-        message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
+        #message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
+        #TODO: Turn this into an option instead
+        message_filename = os.path.join(MSG_PATH, 'SEARCH_ENTRY_MSG_' + start_str)
 
         # Dump summary into message file
         with open(message_filename, "w") as f:
@@ -834,3 +836,58 @@ add.parser.add_argument(
     nargs='*'
 )
 add.parser.set_defaults(func=add)
+
+
+def websearch_command(query):
+    """Search query with Google, checking previous existing solutions to this query
+    NOTE: Use single quotes to allow double quotes in query
+          E.g. lifelogger websearch 'How to "do this"'
+
+    :param query: Initial value for query field (title)
+    :return:
+    """
+
+    # Imports that are used only in this function
+    """
+    Keep here to make it cleaner and easier moving this command
+    to its own file in the future
+    """
+
+    import webbrowser
+    import subprocess
+
+    # NOTE: URLs cannot contain spaces. URL encoding normally replaces a space with a plus (+) sign or with %20.
+    # Source: https://www.w3schools.com/tags/ref_urlencode.asp
+
+    # Build URL for Google search
+    url_google = "https://www.google.com/search?q=" + query.replace(' ', "+")
+
+    # Build URL for Google Calendar search
+    url_calendar = "https://calendar.google.com/calendar/r/search?q=" + query.replace(' ', "+")
+
+    # Focus 'search' workspace now
+    subprocess.call("i3-msg workspace search", shell=True)
+
+    # Open new browser with Google and calendar search
+    browser = webbrowser.get('google-chrome')
+    browser.open(url_google, new=1, autoraise=True)
+    browser.open(url_calendar, new=2, autoraise=True)
+
+    # Call new function with query
+    # Add delay to avoid text editor opening in different workspace
+    import time
+    time.sleep(0.5)  # Delay in seconds
+    # TODO: Add calendar argument for choosing 'searched' calendar here
+    # NOTE: Weird syntax in new_command requires passing a list
+    return new_command(["#search: " + query])
+
+
+websearch_command.parser = subparsers.add_parser(
+    'websearch',
+    description="Log quick Google search and its final solution.\nE.g. lifelogger websearch \'How to \"do this\"\'")
+websearch_command.parser.add_argument(
+    'query',
+    type=six.text_type,
+    help="The query for the search."
+)
+websearch_command.parser.set_defaults(func=websearch_command)
