@@ -838,10 +838,11 @@ add.parser.add_argument(
 add.parser.set_defaults(func=add)
 
 
-def websearch_command(query):
-    """Search query with Google, checking previous existing solutions to this query
-    NOTE: Use single quotes to allow double quotes in query
-          E.g. lifelogger websearch 'How to "do this"'
+def quicksearch_command(query):
+    """Search query with Google, checking previous existing solutions to this
+    E.g. lifelogger websearch How to do this
+    NOTE: Currently double quotes for literal group search is not working,
+          due to the parsing process introduced by nargs='*'
 
     :param query: Initial value for query field (title)
     :return:
@@ -852,9 +853,13 @@ def websearch_command(query):
     Keep here to make it cleaner and easier moving this command
     to its own file in the future
     """
-
     import webbrowser
     import subprocess
+
+    # Query is captured via nargs='*',
+    # meaning we can pass a variable length list of strings
+    # Then we need to concatenate into a single string again
+    query = ' '.join(query)
 
     # NOTE: URLs cannot contain spaces. URL encoding normally replaces a space with a plus (+) sign or with %20.
     # Source: https://www.w3schools.com/tags/ref_urlencode.asp
@@ -882,12 +887,14 @@ def websearch_command(query):
     return new_command(["#search: " + query])
 
 
-websearch_command.parser = subparsers.add_parser(
+quicksearch_command.parser = subparsers.add_parser(
     'websearch',
     description="Log quick Google search and its final solution.\nE.g. lifelogger websearch \'How to \"do this\"\'")
-websearch_command.parser.add_argument(
+quicksearch_command.parser.add_argument(
     'query',
     type=six.text_type,
+    nargs='*',
     help="The query for the search."
 )
-websearch_command.parser.set_defaults(func=websearch_command)
+
+quicksearch_command.parser.set_defaults(func=quicksearch_command)
