@@ -118,10 +118,11 @@ now.parser.add_argument(
 now.parser.set_defaults(func=now)
 
 
-def new_command(summary):
+def new_command(summary, do_cancel_on_empty_body=False):
     """Create new event entry in Calendar
 
     :param summary: Initial value for summary field (title)
+    :param do_cancel_on_empty_body: Do not save log if body is empty
     :return:
     """
 
@@ -186,13 +187,11 @@ def new_command(summary):
             # Read rest of file as description
             description = f.read().strip()
 
-
-
         # Assert summary is not empty
-        if not summary:
+        if not summary or (do_cancel_on_empty_body and not description):
             sys.stdout.write("Failed - Empty summary\n")
             note = notify2.Notification("ERROR in lifelogger entry",
-                                        "Empty summary",
+                                        "Empty log",
                                         os.path.join(DATA_PATH, "newnote-gray.png")
                                         )
             note.show()
@@ -884,7 +883,7 @@ def quicksearch_command(query):
     time.sleep(0.5)  # Delay in seconds
     # TODO: Add calendar argument for choosing 'searched' calendar here
     # NOTE: Weird syntax in new_command requires passing a list
-    return new_command(["#search: " + query])
+    return new_command(["#search: " + query], do_cancel_on_empty_body=True)
 
 
 quicksearch_command.parser = subparsers.add_parser(
