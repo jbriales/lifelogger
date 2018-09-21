@@ -1,7 +1,7 @@
 python-dateutil
 google-api-python-client
 icalendar
-peewee<3
+peewee
 requests
 termcolor
 notify2
