@@ -118,12 +118,13 @@ now.parser.add_argument(
 now.parser.set_defaults(func=now)
 
 
-def new_command(summary, do_cancel_on_empty_body=False):
+def new_command(summary, do_cancel_on_empty_body=False, do_escape_html=True):
     """Create new event entry in Calendar
 
     :param summary: Initial value for summary field (title)
     :param do_cancel_on_empty_body: Do not save log if body is empty
-    :return:
+    :param do_escape_html: Convert HTML language characters to their HTML code
+    :return: True if event correctly created
     """
 
     # Imports that are used only in this function
@@ -153,15 +154,15 @@ def new_command(summary, do_cancel_on_empty_body=False):
 
         start = datetime.now() + timedelta(minutes=offset)
         start_str = start.isoformat()
-        #message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
-        #TODO: Turn this into an option instead
+        # message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
+        # TODO: Turn this into an option instead
         message_filename = os.path.join(MSG_PATH, 'SEARCH_ENTRY_MSG_' + start_str)
 
         # Dump summary into message file
         with open(message_filename, "w") as f:
             if summary:
                 f.write("%s" % summary)
-            f.write("\n") # New line after summary (empty or not!)
+            f.write("\n")  # New line after summary (empty or not!)
             # Add metadata
             # From-To interval (special keywords: last, now)
             f.write("from %s to now\n" % start.strftime("%H:%M"))
@@ -216,12 +217,12 @@ def new_command(summary, do_cancel_on_empty_body=False):
             # Query events from last 2 days in *lifelogger*
             last_events = service.events().list(
                 calendarId=config['calendars']['lifelogger']['id'],
-                timeMin=(now-timedelta(days=2)).isoformat() + "Z",
+                timeMin=(now - timedelta(days=2)).isoformat() + "Z",
                 timeMax=now.isoformat() + "Z"
             ).execute()['items']
 
             # Get endtimes of all retrieved events
-            GetDateTime = lambda str : datetime.strptime(str, "%Y-%m-%dT%H:%M:%S")
+            GetDateTime = lambda str: datetime.strptime(str, "%Y-%m-%dT%H:%M:%S")
             endtimes = [GetDateTime(event['end']['dateTime'][0:-6]) for event in last_events]
 
             # Keep last finished event as starting point for current event
@@ -281,6 +282,18 @@ def new_command(summary, do_cancel_on_empty_body=False):
         #     os.remove(message_filename)
         # except OSError as e:
         #     print("Error: %s - %s." % (e.filename, e.strerror))
+
+        if do_escape_html:
+            # WARNING: HTML characters will not be decodified in many cases
+            # # Escape HTML characters in description to avoid issues
+            # # NOTE: Text like <varname> would disappear as a wrong HTML tab
+            # import html
+            # description = html.escape(description)
+
+            # Clearer approach: Substitute just conflicting patterns
+            # Find any tag-like patter,
+            # e.g. '<varname>' or '< a_var  >' and substitute '<' and '>' in this cases
+            description = re.sub(r"\<([\w ]*)\>", r"&lt;\1&gt;", description)
 
         result = service.events().insert(
             calendarId=config['calendars']['lifelogger']['id'],
@@ -356,11 +369,11 @@ def cont_command(num_prev_events):
     ).execute()['items']
 
     # Print list of last N events
-    for idx, event in enumerate(last_events[:-(num_prev_events+1):-1]):
+    for idx, event in enumerate(last_events[:-(num_prev_events + 1):-1]):
         # Traverse num_prev_events last items in reverse order
         # SOURCE: https://stackoverflow.com/a/509295
         # That is: From newest back
-        print("%d: %s" % (idx+1, event['summary']))
+        print("%d: %s" % (idx + 1, event['summary']))
 
     try:
         chosen_idx = input("Type event idx to continue: ")
@@ -557,7 +570,7 @@ def sync_nomie():
 
             # Add note content to event summary and description
             previous_event['title'] += " " + note_short
-            previous_event['description'] += "\n"+note_long
+            previous_event['description'] += "\n" + note_long
 
         return calendarEvents
 
@@ -595,7 +608,7 @@ def sync_nomie():
         # Set color of calendar
         new_id = created_calendar['id']
         calendar_list_entry = service.calendarList().get(calendarId=new_id).execute()
-        calendar_list_entry['colorId'] = '1' # cocoa
+        calendar_list_entry['colorId'] = '1'  # cocoa
 
         updated_calendar_list_entry = service.calendarList().update(
             calendarId=new_id,
