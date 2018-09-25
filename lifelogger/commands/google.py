@@ -156,7 +156,7 @@ def new_command(summary, do_cancel_on_empty_body=False, do_escape_html=True):
         start_str = start.isoformat()
         # message_filename = os.path.join(MSG_PATH, 'ENTRY_MSG_'+start_str)
         # TODO: Turn this into an option instead
-        message_filename = os.path.join(MSG_PATH, 'SEARCH_ENTRY_MSG_' + start_str)
+        message_filename = os.path.join(MSG_PATH, 'SEARCH_ENTRY_MSG_' + start_str + '.md')
 
         # Dump summary into message file
         with open(message_filename, "w") as f:
