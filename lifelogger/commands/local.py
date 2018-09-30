@@ -7,6 +7,7 @@ from __future__ import absolute_import, print_function
 import requests
 
 from icalendar import Calendar
+from termcolor import colored
 
 from ..config import config, ICAL_PATH, ICS_PATH
 from ..utils import nice_format
@@ -99,6 +100,71 @@ make_db_all.parser = subparsers.add_parser(
                 "but may need re-running on changes to lifelogger."
 )
 make_db_all.parser.set_defaults(func=make_db_all)
+
+
+def create_md_from_ical_event(calendar_name, ical_event):
+    start = normalized(ical_event.get('dtstart').dt)
+    end = ical_event.get('dtend')
+
+    # 0-minute events have no end
+    if end is not None:
+        end = normalized(end.dt)
+    else:
+        end = start
+
+    return cls.create(
+        calendar=calendar_name,
+        uid=ical_event.get('uid'),
+        summary=ical_event.get('summary'),
+        start=start,
+        end=end,
+        description=ical_event.get('description', ''),
+    )
+
+
+def make_mdnotes_from_search():
+    import os
+
+    print("Converting search events in iCal file into md notes...")
+
+    # Create temporary folder for markdown notes
+    tmp_path = os.path.expanduser("~/tmp/search")
+    if not os.path.exists(tmp_path):
+        try:
+            os.makedirs(tmp_path)
+        except OSError as exc:  # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
+
+    for cal_name in ['lifelogger']:  # Read only from lifelogger
+        ics_path = os.path.join(ICS_PATH, "%s.ics" % cal_name)
+
+        with open(ics_path, 'rb') as f:
+            ical_data = f.read()
+
+        cal = Calendar.from_ical(ical_data)
+        for event in cal.walk("VEVENT"):
+            # Use original uid from Google (remove suffix)
+            uid = str(event.get('uid')).replace('@google.com', '.md')
+            # Remove tag from title
+            summary = str(event.get('summary'))
+            if '#search: ' not in summary:
+                continue
+            title = summary.replace('#search: ', '') + '.md'
+            try:
+                with open(os.path.join(tmp_path, title), 'w') as f:
+                    f.write(event.get('description'))
+            except:
+                print(colored("ERROR: Saving %s" % title), 'red')
+
+    return True
+
+
+make_mdnotes_from_search.parser = subparsers.add_parser(
+    'make_mdnotes_from_search',
+    description="Parses all the downloaded iCal file into markdown notes. "
+)
+make_mdnotes_from_search.parser.set_defaults(func=make_mdnotes_from_search)
 
 
 def download(reset=None):
